@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioInsight Analyzer</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container-fluid">
+        <header class="bg-primary text-white text-center py-4 mb-4">
+            <h1>BioInsight Analyzer</h1>
+            <p class="lead">A powerful tool for analyzing complex biomedical data</p>
+        </header>
+
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="card-title">Data Input</h3>
+                    </div>
+                    <div class="card-body">
+                        <form id="analysis-form" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="file-upload" class="form-label">Upload Data File (CSV)</label>
+                                <input type="file" class="form-control" id="file-upload" name="file" accept=".csv">
+                                <div class="form-text">Upload your biomedical data in CSV format</div>
+                            </div>
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="use-sample" name="use_sample">
+                                <label class="form-check-label" for="use-sample">Use sample data instead</label>
+                            </div>
+                            <div class="mb-3">
+                                <a href="/download_sample" class="btn btn-outline-secondary btn-sm">Download Sample Data</a>
+                            </div>
+                            <div class="mb-3">
+                                <label for="analysis-type" class="form-label">Analysis Type</label>
+                                <select class="form-select" id="analysis-type" name="analysis_type">
+                                    <option value="pca">Principal Component Analysis (PCA)</option>
+                                    <option value="clustering">Clustering Analysis</option>
+                                    <option value="prediction">Predictive Modeling</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">Analyze Data</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="card-title">Analysis Information</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="analysis-info">
+                            <p>Select an analysis type and upload your data to get started.</p>
+                            <div id="pca-info" class="analysis-details" style="display: none;">
+                                <h4>Principal Component Analysis</h4>
+                                <p>PCA reduces the dimensionality of your data while preserving as much variance as possible. It helps identify patterns and relationships between variables.</p>
+                            </div>
+                            <div id="clustering-info" class="analysis-details" style="display: none;">
+                                <h4>Clustering Analysis</h4>
+                                <p>Clustering groups similar samples together based on their features. It helps identify natural subgroups in your data.</p>
+                            </div>
+                            <div id="prediction-info" class="analysis-details" style="display: none;">
+                                <h4>Predictive Modeling</h4>
+                                <p>Builds a model to predict drug response based on gene expression data. Identifies the most important features for prediction.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="card-title">Analysis Results</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="loading" style="display: none;">
+                            <div class="d-flex justify-content-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                            <p class="text-center mt-2">Analyzing data, please wait...</p>
+                        </div>
+                        <div id="results-container" style="display: none;">
+                            <div id="pca-results" class="result-section">
+                                <h4>PCA Results</h4>
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="plot-container">
+                                            <img id="pca-plot" class="img-fluid" alt="PCA Plot">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card">
+                                            <div class="card-header">Variance Explained</div>
+                                            <div class="card-body">
+                                                <canvas id="variance-chart"></canvas>
+                                            </div>
+                                        </div>
+                                        <div class="card mt-3">
+                                            <div class="card-header">Top Contributing Features</div>
+                                            <div class="card-body">
+                                                <ul id="top-features" class="list-group list-group-flush"></ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="clustering-results" class="result-section" style="display: none;">
+                                <h4>Clustering Results</h4>
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="plot-container">
+                                            <img id="clustering-plot" class="img-fluid" alt="Clustering Plot">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card">
+                                            <div class="card-header">Cluster Statistics</div>
+                                            <div class="card-body">
+                                                <table id="cluster-stats" class="table table-sm">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Cluster</th>
+                                                            <th>Count</th>
+                                                            <th>Mean Response</th>
+                                                            <th>Std Dev</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody></tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="prediction-results" class="result-section" style="display: none;">
+                                <h4>Prediction Results</h4>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="plot-container">
+                                            <img id="feature-importance-plot" class="img-fluid" alt="Feature Importance Plot">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="plot-container">
+                                            <img id="prediction-plot" class="img-fluid" alt="Prediction Plot">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-header">Model Performance</div>
+                                            <div class="card-body">
+                                                <table class="table table-sm">
+                                                    <tr>
+                                                        <th>Mean Squared Error:</th>
+                                                        <td id="mse-value"></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>R² Score:</th>
+                                                        <td id="r2-value"></td>
+                                                    </tr>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-header">Top Predictive Features</div>
+                                            <div class="card-body">
+                                                <ul id="top-predictive-features" class="list-group list-group-flush"></ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-dark text-white text-center py-3 mt-4">
+        <p>BioInsight Analyzer &copy; 2025 - A powerful tool for biomedical data analysis</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Show analysis info based on selected analysis type
+            const analysisType = document.getElementById('analysis-type');
+            const analysisDetails = document.querySelectorAll('.analysis-details');
+            
+            analysisType.addEventListener('change', function() {
+                analysisDetails.forEach(detail => detail.style.display = 'none');
+                document.getElementById(`${this.value}-info`).style.display = 'block';
+            });
+            
+            // Trigger change event to show initial info
+            analysisType.dispatchEvent(new Event('change'));
+            
+            // Handle form submission
+            const form = document.getElementById('analysis-form');
+            const fileUpload = document.getElementById('file-upload');
+            const useSample = document.getElementById('use-sample');
+            
+            useSample.addEventListener('change', function() {
+                fileUpload.disabled = this.checked;
+            });
+            
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Validate form
+                if (!useSample.checked && (!fileUpload.files || fileUpload.files.length === 0)) {
+                    alert('Please upload a file or use sample data');
+                    return;
+                }
+                
+                // Show loading indicator
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('results-container').style.display = 'none';
+                
+                // Prepare form data
+                const formData = new FormData(form);
+                
+                // Send AJAX request
+                fetch('/analyze', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Hide loading indicator
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('results-container').style.display = 'block';
+                    
+                    // Hide all result sections
+                    document.querySelectorAll('.result-section').forEach(section => {
+                        section.style.display = 'none';
+                    });
+                    
+                    // Show appropriate result section based on analysis type
+                    if (data.error) {
+                        alert('Error: ' + data.error);
+                        return;
+                    }
+                    
+                    if (data.analysis_type === 'pca') {
+                        displayPCAResults(data);
+                    } else if (data.analysis_type === 'clustering') {
+                        displayClusteringResults(data);
+                    } else if (data.analysis_type === 'prediction') {
+                        displayPredictionResults(data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('loading').style.display = 'none';
+                    alert('An error occurred during analysis. Please try again.');
+                });
+            });
+            
+            // Function to display PCA results
+            function displayPCAResults(data) {
+                document.getElementById('pca-results').style.display = 'block';
+                
+                // Display PCA plot
+                document.getElementById('pca-plot').src = 'data:image/png;base64,' + data.plot;
+                
+                // Display variance explained chart
+                const varianceCtx = document.getElementById('variance-chart').getContext('2d');
+                new Chart(varianceCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['PC1', 'PC2'],
+                        datasets: [{
+                            label: 'Variance Explained',
+                            data: data.variance_explained.map(v => v * 100),
+                            backgroundColor: ['rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)']
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Percentage (%)'
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                // Display top features
+                const topFeaturesList = document.getElementById('top-features');
+                topFeaturesList.innerHTML = '';
+                data.top_features.forEach(feature => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item';
+                    li.textContent = feature;
+                    topFeaturesList.appendChild(li);
+                });
+            }
+            
+            // Function to display clustering results
+            function displayClusteringResults(data) {
+                document.getElementById('clustering-results').style.display = 'block';
+                
+                // Display clustering plot
+                document.getElementById('clustering-plot').src = 'data:image/png;base64,' + data.plot;
+                
+                // Display cluster statistics
+                const clusterStatsTable = document.querySelector('#cluster-stats tbody');
+                clusterStatsTable.innerHTML = '';
+                
+                if (data.cluster_stats) {
+                    data.cluster_stats.forEach(stat => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${stat.Cluster}</td>
+                            <td>${stat.Drug_Response.count}</td>
+                            <td>${stat.Drug_Response.mean.toFixed(2)}</td>
+                            <td>${stat.Drug_Response.std.toFixed(2)}</td>
+                        `;
+                        clusterStatsTable.appendChild(row);
+                    });
+                } else {
+                    const row = document.createElement('tr');
+                    row.innerHTML = '<td colspan="4">No drug response data available for statistics</td>';
+                    clusterStatsTable.appendChild(row);
+                }
+            }
+            
+            // Function to display prediction results
+            function displayPredictionResults(data) {
+                document.getElementById('prediction-results').style.display = 'block';
+                
+                // Display plots
+                document.getElementById('feature-importance-plot').src = 'data:image/png;base64,' + data.feature_importance_plot;
+                document.getElementById('prediction-plot').src = 'data:image/png;base64,' + data.prediction_plot;
+                
+                // Display model performance metrics
+                document.getElementById('mse-value').textContent = data.mse.toFixed(4);
+                document.getElementById('r2-value').textContent = data.r2.toFixed(4);
+                
+                // Display top predictive features
+                const topFeaturesList = document.getElementById('top-predictive-features');
+                topFeaturesList.innerHTML = '';
+                data.top_features.forEach(feature => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item';
+                    li.textContent = feature;
+                    topFeaturesList.appendChild(li);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
